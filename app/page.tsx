@@ -1,216 +1,241 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-
-/*import { redirect } from "next/navigation"
-import LoginPage from "@/components/login-page"
-
-export default function Home() {
-  // In a real app, you would check for authentication here
-  // For demo purposes, we'll just show the login page
-  const isAuthenticated = false
-
-  if (isAuthenticated) {
-    redirect("/dashboard")
-  }
-
-  return <LoginPage />
-}*/
-
-type Employee = {
-  employee_id: number;
-  employee_name: string;
-  employee_desig: string;
-  employee_partner_id: number;
-  employee_dept: string;
-  employee_email: string;
-};
-
-type Seat = {
-  seat_no: number;
-  is_booked: boolean;
-  wing_no: number;
-  floor_no: number;
-  partner_id: number;
-  is_cubic: boolean;
-  x: number;
-  y: number;
-};
-
-function ChairIcon({ color = "#43a047", size = 28 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <rect x="6" y="10" width="12" height="6" rx="2" fill={color} />
-      <rect x="7" y="4" width="10" height="7" rx="2" fill={color} />
-      <rect x="6" y="17" width="2" height="4" rx="1" fill={color} />
-      <rect x="16" y="17" width="2" height="4" rx="1" fill={color} />
-    </svg>
-  );
-}
-
-const today = new Date().toISOString().slice(0, 10);
+import TopBar from "@/components/TopBar";
+import SeatFilters from "@/components/SeatFilters";
+import FloorPlan from "@/components/FloorPlan";
+import StatsOverlay from "@/components/StatsOverlay";
+import SeatDialog from "@/components/SeatDialog";
 
 export default function BookingApp() {
-  const [email, setEmail] = useState('');
-  const [employee, setEmployee] = useState<Employee | null>(null);
-  const [seats, setSeats] = useState<Seat[]>([]);
-  const [selectedSeat, setSelectedSeat] = useState<Seat | null>(null);
-  const [message, setMessage] = useState('');
-  const [date, setDate] = useState(today);
-  const [fromTime, setFromTime] = useState("09:00");
-  const [toTime, setToTime] = useState("17:00");
   const router = useRouter();
 
-  // Fetch seats for selected date/time
-  useEffect(() => {
-    fetch(`/api/seats?date=${date}&from=${fromTime}&to=${toTime}`)
-      .then(res => res.json())
-      .then(data => setSeats(data));
-  }, [date, fromTime, toTime]);
+  // State
+  const [employee, setEmployee] = useState<any>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>();
+  const [selectedTime, setSelectedTime] = useState<string>("");
+  const [selectedZone, setSelectedZone] = useState<string | null>(null);
+  const [selectedSeatType, setSelectedSeatType] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [startPosition, setStartPosition] = useState({ x: 0, y: 0 });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [selectedSeat, setSelectedSeat] = useState<any>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [floorStats, setFloorStats] = useState({
+    total: 0,
+    available: 0,
+    booked: 0,
+    yours: 0,
+  });
+  const [seats, setSeats] = useState<any[]>([]);
 
-  // Login handler
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setMessage('');
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      body: JSON.stringify({ employee_email: email }),
-      headers: { 'Content-Type': 'application/json' }
+  // Generate 24-hour time slots
+  const timeSlots = Array.from({ length: 24 }, (_, i) => {
+    const hour = i.toString().padStart(2, "0");
+    return `${hour}:00`;
+  });
+
+  // Employee check
+  useEffect(() => {
+    const emp = JSON.parse(localStorage.getItem("employee") || "null");
+    setEmployee(emp);
+    if (!emp) {
+      router.push("/login");
+    }
+  }, [router]);
+
+  // Generate mock seats (replace with API call in production)
+  useEffect(() => {
+    const generateSeats = () => {
+      const mockSeats: any[] = [];
+      const angle = 20;
+      const adjustForAngle = (x: number, y: number, rowIndex: number, colIndex: number) => {
+        const angleOffset = rowIndex * Math.tan((angle * Math.PI) / 180) * 10;
+        return {
+          x: x + angleOffset + colIndex * 5,
+          y: y,
+        };
+      };
+      const tenderStartX = 245;
+      const tenderStartY = 285;
+      const rowSpacing = 40;
+      const colSpacing = 45;
+      const tenderRows = [
+        [
+          { id: "TC-101", status: "available" },
+          { id: "TC-102", status: "available" },
+          { id: "TC-103", status: "booked" },
+          { id: "TC-104", status: "available" },
+        ],
+        // ...add more rows as needed
+      ];
+      tenderRows.forEach((row, rowIndex) => {
+        row.forEach((seat, colIndex) => {
+          const { x, y } = adjustForAngle(
+            tenderStartX + colIndex * colSpacing,
+            tenderStartY + rowIndex * rowSpacing,
+            rowIndex,
+            colIndex,
+          );
+          mockSeats.push({
+            id: seat.id,
+            x,
+            y,
+            width: 40,
+            height: 25,
+            status: seat.status,
+            type: "standard",
+            zone: "tender",
+            angle: angle,
+          });
+        });
+      });
+      // Floor stats
+      const total = mockSeats.length;
+      const available = mockSeats.filter((seat) => seat.status === "available").length;
+      const booked = mockSeats.filter((seat) => seat.status === "booked").length;
+      const yours = mockSeats.filter((seat) => seat.status === "yours").length;
+      setFloorStats({ total, available, booked, yours });
+      return mockSeats;
+    };
+    setSeats(generateSeats());
+  }, []);
+
+  // Pan/Zoom Handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    setIsDragging(true);
+    setStartPosition({
+      x: e.clientX - position.x,
+      y: e.clientY - position.y,
     });
-    const data = await res.json();
-    if (data.success) {
-      setEmployee(data.employee);
-      localStorage.setItem("employee", JSON.stringify(data.employee));
+  };
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setPosition({
+      x: e.clientX - startPosition.x,
+      y: e.clientY - startPosition.y,
+    });
+  };
+  const handleMouseUp = () => setIsDragging(false);
+  const handleZoomIn = () => setScale((prev) => Math.min(prev + 0.1, 2));
+  const handleZoomOut = () => setScale((prev) => Math.max(prev - 0.1, 0.5));
+  const resetView = () => {
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  };
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+      setIsFullscreen(true);
     } else {
-      setMessage(data.message);
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+        setIsFullscreen(false);
+      }
     }
   };
 
-  // Book seat handler
-  const handleBook = async () => {
-    if (!selectedSeat || !employee) return;
-    const bookingData = {
-      employee_id: employee.employee_id,
-      seat_no: selectedSeat.seat_no,
-      booking_date: date,
-      from_time: fromTime,
-      to_time: toTime,
-      total_hours: 8,
-    };
-    const res = await fetch('/api/bookings', {
-      method: 'POST',
-      body: JSON.stringify(bookingData),
-      headers: { 'Content-Type': 'application/json' }
-    });
-    if (res.ok) {
-      setSelectedSeat(null);
+  // Seat selection
+  const handleSeatClick = (seat: any) => {
+    setSelectedSeat(seat);
+    setIsDialogOpen(true);
+  };
+
+  // Booking logic
+  const handleBookSeat = async () => {
+    if (selectedSeat && employee) {
+      setSeats(
+        seats.map((seat) =>
+          seat.id === selectedSeat.id ? { ...seat, status: "yours", bookedBy: employee.employee_name } : seat,
+        ),
+      );
+      setFloorStats((prev) => ({
+        ...prev,
+        available: prev.available - 1,
+        yours: prev.yours + 1,
+      }));
+      setIsDialogOpen(false);
       router.push("/account");
     }
   };
+  const handleCancelBooking = () => {
+    if (selectedSeat) {
+      setSeats(
+        seats.map((seat) =>
+          seat.id === selectedSeat.id ? { ...seat, status: "available", bookedBy: undefined } : seat,
+        ),
+      );
+      setFloorStats((prev) => ({
+        ...prev,
+        available: prev.available + 1,
+        yours: prev.yours - 1,
+      }));
+      setIsDialogOpen(false);
+    }
+  };
 
-  if (!employee) {
-    return (
-      <form onSubmit={handleLogin} style={{ margin: "2rem auto", maxWidth: 400 }}>
-        <input
-          type="email"
-          placeholder="Employee Email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          required
-          style={{ padding: 8, width: "100%", marginBottom: 8 }}
-        />
-        <button type="submit" style={{ padding: 8, width: "100%" }}>Login</button>
-        {message && <div style={{ color: 'red', marginTop: 8 }}>{message}</div>}
-      </form>
-    );
-  }
+  // Filter seats
+  const filteredSeats = seats.filter((seat) => {
+    if (selectedZone && seat.zone !== selectedZone) return false;
+    if (selectedSeatType && seat.type !== selectedSeatType) return false;
+    if (searchQuery && !seat.id.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
+
+  if (!employee) return <div>Loading...</div>;
 
   return (
-    <div style={{ maxWidth: 600, margin: "2rem auto" }}>
-      <h2>Welcome, {employee.employee_name}</h2>
-      <div style={{ marginBottom: 16 }}>
-        <label>
-          Date: <input type="date" value={date} onChange={e => setDate(e.target.value)} />
-        </label>
-        <label style={{ marginLeft: 16 }}>
-          From: <select value={fromTime} onChange={e => setFromTime(e.target.value)}>
-            <option value="09:00">09:00</option>
-            <option value="10:00">10:00</option>
-            {/* ...more times */}
-          </select>
-        </label>
-        <label style={{ marginLeft: 16 }}>
-          To: <select value={toTime} onChange={e => setToTime(e.target.value)}>
-            <option value="17:00">17:00</option>
-            <option value="18:00">18:00</option>
-            {/* ...more times */}
-          </select>
-        </label>
-      </div>
-      <h3>Available Seats</h3>
-      <div style={{ position: "relative", width: 900, height: 600, margin: "auto" }}>
-        <img
-          src="/workspace-ss.png"
-          alt="Workspace Map"
-          style={{ width: "100%", height: "100%", display: "block" }}
+    <div className="relative h-full w-full overflow-hidden rounded-xl border border-[#2A3042]/50 bg-gradient-to-b from-[#1A1F2E] to-[#131725] p-0 shadow-xl">
+      <TopBar
+        selectedDate={selectedDate}
+        setSelectedDate={setSelectedDate}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        scale={scale}
+        handleZoomIn={handleZoomIn}
+        handleZoomOut={handleZoomOut}
+        resetView={resetView}
+        isFullscreen={isFullscreen}
+        toggleFullscreen={toggleFullscreen}
+      />
+      <div className="flex h-full">
+        <SeatFilters
+          selectedDate={selectedDate}
+          setSelectedDate={setSelectedDate}
+          selectedTime={selectedTime}
+          setSelectedTime={setSelectedTime}
+          selectedZone={selectedZone}
+          setSelectedZone={setSelectedZone}
+          selectedSeatType={selectedSeatType}
+          setSelectedSeatType={setSelectedSeatType}
+          timeSlots={timeSlots}
         />
-        <svg
-          width={900}
-          height={600}
-          style={{ position: "absolute", top: 0, left: 0 }}
-        >
-          {seats.map(seat => (
-            <g
-              key={seat.seat_no}
-              transform={`translate(${seat.x},${seat.y})`}
-              onClick={() => !seat.is_booked && setSelectedSeat(seat)}
-              style={{ cursor: seat.is_booked ? "not-allowed" : "pointer" }}
-            >
-              <circle
-                cx={0}
-                cy={0}
-                r={20}
-                fill={
-                  selectedSeat && selectedSeat.seat_no === seat.seat_no
-                    ? "#8e24aa" // purple for selected
-                    : seat.is_booked
-                    ? "#e53935" // red for booked
-                    : "#43a047" // green for available
-                }
-                opacity={0.2}
-              />
-              <ChairIcon
-                color={
-                  selectedSeat && selectedSeat.seat_no === seat.seat_no
-                    ? "#8e24aa"
-                    : seat.is_booked
-                    ? "#e53935"
-                    : "#43a047"
-                }
-                size={28}
-              />
-              <text
-                x={0}
-                y={32}
-                textAnchor="middle"
-                fontSize="12"
-                fill="#fff"
-                fontWeight="bold"
-              >
-                {seat.seat_no}
-              </text>
-            </g>
-          ))}
-        </svg>
+        <FloorPlan
+          seats={filteredSeats}
+          scale={scale}
+          position={position}
+          onSeatClickAction={handleSeatClick}
+          onMouseDownAction={handleMouseDown}
+          onMouseMoveAction={handleMouseMove}
+          onMouseUpAction={handleMouseUp}
+        />
       </div>
-      {selectedSeat && (
-        <div className="modal">
-          <p>Book Seat <b>{selectedSeat.seat_no}</b>?</p>
-          <button onClick={handleBook} style={{ marginRight: 8 }}>Confirm</button>
-          <button onClick={() => setSelectedSeat(null)}>Cancel</button>
-        </div>
-      )}
-      {message && <div style={{ color: 'green', marginTop: 16 }}>{message}</div>}
+      <StatsOverlay floorStats={floorStats} />
+      <SeatDialog
+        selectedSeat={selectedSeat}
+        isDialogOpen={isDialogOpen}
+        setIsDialogOpen={setIsDialogOpen}
+        selectedDate={selectedDate}
+        selectedTime={selectedTime}
+        handleBookSeat={handleBookSeat}
+        handleCancelBooking={handleCancelBooking}
+      />
     </div>
   );
 }

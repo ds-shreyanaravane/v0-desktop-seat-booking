@@ -3,14 +3,16 @@
 import { useState } from "react"
 import { ThemeProvider } from "@/components/theme-provider"
 import AppSidebar from "@/components/app-sidebar"
-import FloorPlan from "@/components/floor-plan"
-import TopNavigation from "@/components/top-navigation"
+import FloorPlan from "@/components/FloorPlan"
+import TopNavigation from "@/components/TopBar"
 
 export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
   const [selectedZone, setSelectedZone] = useState<string | null>(null)
   const [selectedSeatType, setSelectedSeatType] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [selectedSeat, setSelectedSeat] = useState<string | null>(null)
+  const [seats, setSeats] = useState<string[]>([])
 
   return (
     <ThemeProvider attribute="class" defaultTheme="dark">
