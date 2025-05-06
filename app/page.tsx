@@ -6,12 +6,22 @@ import SeatFilters from "@/components/SeatFilters";
 import FloorPlan from "@/components/FloorPlan";
 import StatsOverlay from "@/components/StatsOverlay";
 import SeatDialog from "@/components/SeatDialog";
+import LoginForm from "@/components/LoginForm";
+import { employees as dummyEmployees } from "@/lib/dummyData";
+
+type Employee = {
+  employee_id: number;
+  employee_name: string;
+  employee_email: string;
+};
 
 export default function BookingApp() {
   const router = useRouter();
 
   // State
-  const [employee, setEmployee] = useState<any>(null);
+  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginError, setLoginError] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
@@ -31,6 +41,8 @@ export default function BookingApp() {
     yours: 0,
   });
   const [seats, setSeats] = useState<any[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Generate 24-hour time slots
   const timeSlots = Array.from({ length: 24 }, (_, i) => {
@@ -38,17 +50,24 @@ export default function BookingApp() {
     return `${hour}:00`;
   });
 
-  // Employee check
+  // On mount, check for session in localStorage
   useEffect(() => {
-    const emp = JSON.parse(localStorage.getItem("employee") || "null");
-    setEmployee(emp);
-    if (!emp) {
-      router.push("/login");
+    const storedSessionId = localStorage.getItem("sessionId");
+    if (storedSessionId) {
+      checkSession(storedSessionId);
     }
-  }, [router]);
+  }, []);
+
+  // Dummy login validation (replace with real API in production)
+  const handleLogin = async (employee: Employee, sid: string) => {
+    setEmployee(employee);
+    setSessionId(sid);
+    localStorage.setItem("sessionId", sid);
+  };
 
   // Generate mock seats (replace with API call in production)
   useEffect(() => {
+    if (!employee) return;
     const generateSeats = () => {
       const mockSeats: any[] = [];
       const angle = 20;
@@ -102,7 +121,7 @@ export default function BookingApp() {
       return mockSeats;
     };
     setSeats(generateSeats());
-  }, []);
+  }, [employee]);
 
   // Pan/Zoom Handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -148,22 +167,34 @@ export default function BookingApp() {
   };
 
   // Booking logic
-  const handleBookSeat = async () => {
+  const handleBookSeat = async (fromTime: string, toTime: string, bookingDate: string) => {
     if (selectedSeat && employee) {
-      setSeats(
-        seats.map((seat) =>
-          seat.id === selectedSeat.id ? { ...seat, status: "yours", bookedBy: employee.employee_name } : seat,
-        ),
-      );
-      setFloorStats((prev) => ({
-        ...prev,
-        available: prev.available - 1,
-        yours: prev.yours + 1,
-      }));
-      setIsDialogOpen(false);
-      router.push("/account");
+      setIsLoading(true);
+      try {
+        const response = await fetch("/api/seats", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            seatId: selectedSeat.id,
+            status: "yours",
+            employeeName: employee.employee_name,
+            fromTime,
+            toTime,
+            bookingDate
+          })
+        });
+        const data = await response.json();
+        setSeats(data.seats);
+        setFloorStats(data.stats);
+        setIsDialogOpen(false);
+      } catch (error) {
+        console.error("Error booking seat:", error);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
+  
   const handleCancelBooking = () => {
     if (selectedSeat) {
       setSeats(
@@ -188,8 +219,102 @@ export default function BookingApp() {
     return true;
   });
 
-  if (!employee) return <div>Loading...</div>;
+  const fetchSeats = async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (selectedZone) params.append("zone", selectedZone);
+      if (selectedSeatType) params.append("seatType", selectedSeatType);
+      if (searchQuery) params.append("searchQuery", searchQuery);
 
+      const response = await fetch(`/api/seats?${params.toString()}`);
+      const data = await response.json();
+      
+      setSeats(data.seats);
+      setFloorStats(data.stats);
+    } catch (error) {
+      console.error("Error fetching seats:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLoginFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const found = dummyEmployees.find(emp => emp.employee_email === loginEmail.trim());
+    if (!found) {
+      setLoginError("Invalid email. Please try again.");
+      return;
+    }
+    // Simulate session id
+    const sid = Math.random().toString(36).slice(2);
+    await handleLogin(found, sid);
+  };
+
+  const checkSession = async (sid: string) => {
+    try {
+      const response = await fetch("/api/auth", {
+        headers: { "x-session-id": sid }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setEmployee(data.employee);
+      } else {
+        localStorage.removeItem("sessionId");
+        setSessionId(null);
+        setEmployee(null);
+      }
+    } catch (error) {
+      console.error("Session check failed:", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (sessionId) {
+      try {
+        await fetch("/api/auth", {
+          method: "DELETE",
+          headers: { "x-session-id": sessionId }
+        });
+      } catch (error) {
+        console.error("Logout failed:", error);
+      }
+    }
+    localStorage.removeItem("sessionId");
+    setSessionId(null);
+    setEmployee(null);
+  };
+
+  // --- LOGIN FORM ---
+  if (!employee) {
+    return (
+      <div className="bg-gradient-to-b from-[#1A1F2E] to-[#131725] min-h-screen flex items-center justify-center">
+        <form
+          onSubmit={handleLoginFormSubmit}
+          className="bg-[#1E2536] p-8 rounded-lg shadow-lg border border-[#2A3042] w-full max-w-sm"
+        >
+          <h2 className="text-2xl font-bold mb-6 text-white">Employee Login</h2>
+          <input
+            type="email"
+            value={loginEmail}
+            onChange={(e) => setLoginEmail(e.target.value)}
+            placeholder="Enter your email"
+            className="w-full p-3 mb-4 rounded bg-[#131725] border border-[#2A3042] text-white"
+            required
+          />
+          {loginError && <div className="text-red-500 mb-4">{loginError}</div>}
+          <button
+            type="submit"
+            className="w-full bg-gradient-to-r from-purple-600 to-indigo-700 text-white py-2 rounded hover:from-purple-700 hover:to-indigo-800"
+          >
+            Login
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  // --- SEAT BOOKING UI ---
   return (
     <div className="relative h-full w-full overflow-hidden rounded-xl border border-[#2A3042]/50 bg-gradient-to-b from-[#1A1F2E] to-[#131725] p-0 shadow-xl">
       <TopBar
@@ -224,6 +349,7 @@ export default function BookingApp() {
           onMouseDownAction={handleMouseDown}
           onMouseMoveAction={handleMouseMove}
           onMouseUpAction={handleMouseUp}
+          isLoading={isLoading}
         />
       </div>
       <StatsOverlay floorStats={floorStats} />
