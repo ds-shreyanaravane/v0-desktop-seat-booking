@@ -7,7 +7,7 @@ import FloorPlan from "@/components/FloorPlan";
 import StatsOverlay from "@/components/StatsOverlay";
 import SeatDialog from "@/components/SeatDialog";
 import LoginForm from "@/components/LoginForm";
-import { employees as dummyEmployees } from "@/lib/dummyData";
+import { employees as dummyEmployees, mockSeats } from "@/lib/dummyData";
 
 type Employee = {
   employee_id: number;
@@ -43,6 +43,8 @@ export default function BookingApp() {
   const [seats, setSeats] = useState<any[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedFromTime, setSelectedFromTime] = useState("");
+  const [selectedToTime, setSelectedToTime] = useState("");
 
   // Generate 24-hour time slots
   const timeSlots = Array.from({ length: 24 }, (_, i) => {
@@ -68,59 +70,13 @@ export default function BookingApp() {
   // Generate mock seats (replace with API call in production)
   useEffect(() => {
     if (!employee) return;
-    const generateSeats = () => {
-      const mockSeats: any[] = [];
-      const angle = 20;
-      const adjustForAngle = (x: number, y: number, rowIndex: number, colIndex: number) => {
-        const angleOffset = rowIndex * Math.tan((angle * Math.PI) / 180) * 10;
-        return {
-          x: x + angleOffset + colIndex * 5,
-          y: y,
-        };
-      };
-      const tenderStartX = 245;
-      const tenderStartY = 285;
-      const rowSpacing = 40;
-      const colSpacing = 45;
-      const tenderRows = [
-        [
-          { id: "TC-101", status: "available" },
-          { id: "TC-102", status: "available" },
-          { id: "TC-103", status: "booked" },
-          { id: "TC-104", status: "available" },
-        ],
-        // ...add more rows as needed
-      ];
-      tenderRows.forEach((row, rowIndex) => {
-        row.forEach((seat, colIndex) => {
-          const { x, y } = adjustForAngle(
-            tenderStartX + colIndex * colSpacing,
-            tenderStartY + rowIndex * rowSpacing,
-            rowIndex,
-            colIndex,
-          );
-          mockSeats.push({
-            id: seat.id,
-            x,
-            y,
-            width: 40,
-            height: 25,
-            status: seat.status,
-            type: "standard",
-            zone: "tender",
-            angle: angle,
-          });
-        });
-      });
-      // Floor stats
-      const total = mockSeats.length;
-      const available = mockSeats.filter((seat) => seat.status === "available").length;
-      const booked = mockSeats.filter((seat) => seat.status === "booked").length;
-      const yours = mockSeats.filter((seat) => seat.status === "yours").length;
-      setFloorStats({ total, available, booked, yours });
-      return mockSeats;
-    };
-    setSeats(generateSeats());
+    setSeats(mockSeats);
+    // Floor stats
+    const total = mockSeats.length;
+    const available = mockSeats.filter((seat) => seat.status === "available").length;
+    const booked = mockSeats.filter((seat) => seat.status === "booked").length;
+    const yours = mockSeats.filter((seat) => seat.status === "yours").length;
+    setFloorStats({ total, available, booked, yours });
   }, [employee]);
 
   // Pan/Zoom Handlers
@@ -213,11 +169,25 @@ export default function BookingApp() {
 
   // Filter seats
   const filteredSeats = seats.filter((seat) => {
+    // Always show blocked seats
+    if (seat.status === "blocked") return true;
+
     if (selectedZone && seat.zone !== selectedZone) return false;
     if (selectedSeatType && seat.type !== selectedSeatType) return false;
     if (searchQuery && !seat.id.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    // Filter by date and time range if set
+    if (selectedFromTime && selectedToTime) {
+      if (
+        seat.bookingDate === (selectedDate ? selectedDate.toISOString().slice(0, 10) : undefined) &&
+        seat.fromTime && seat.toTime &&
+        !(selectedToTime <= seat.fromTime || selectedFromTime >= seat.toTime)
+      ) {
+        return false;
+      }
+    }
     return true;
   });
+  
 
   const fetchSeats = async () => {
     setIsLoading(true);
@@ -340,12 +310,20 @@ export default function BookingApp() {
           selectedSeatType={selectedSeatType}
           setSelectedSeatType={setSelectedSeatType}
           timeSlots={timeSlots}
+          selectedFromTime={selectedFromTime}
+          setSelectedFromTime={setSelectedFromTime}
+          selectedToTime={selectedToTime}
+          setSelectedToTime={setSelectedToTime}
         />
         <FloorPlan
           seats={filteredSeats}
           scale={scale}
           position={position}
-          onSeatClickAction={handleSeatClick}
+          onSeatClickAction={(seat) => {
+            if (seat.status !== "blocked") {
+              handleSeatClick(seat);
+            }
+          }}
           onMouseDownAction={handleMouseDown}
           onMouseMoveAction={handleMouseMove}
           onMouseUpAction={handleMouseUp}
