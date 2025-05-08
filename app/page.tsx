@@ -127,22 +127,46 @@ export default function BookingApp() {
     if (selectedSeat && employee) {
       setIsLoading(true);
       try {
-        const response = await fetch("/api/seats", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            seatId: selectedSeat.id,
-            status: "yours",
-            employeeName: employee.employee_name,
-            fromTime,
-            toTime,
-            bookingDate
-          })
-        });
-        const data = await response.json();
-        setSeats(data.seats);
-        setFloorStats(data.stats);
+        // Update the seat status locally first
+        const updatedSeats = seats.map((seat) =>
+          seat.id === selectedSeat.id
+            ? {
+                ...seat,
+                status: "yours",
+                fromTime,
+                toTime,
+                bookingDate,
+                bookedBy: employee.employee_name,
+              }
+            : seat
+        );
+        
+        setSeats(updatedSeats);
+        
+        // Update floor stats
+        const total = updatedSeats.length;
+        const available = updatedSeats.filter((seat) => seat.status === "available").length;
+        const booked = updatedSeats.filter((seat) => seat.status === "booked").length;
+        const yours = updatedSeats.filter((seat) => seat.status === "yours").length;
+        setFloorStats({ total, available, booked, yours });
+
+        // Close the dialog
         setIsDialogOpen(false);
+        setSelectedSeat(null);
+
+        // In production, you would make an API call here
+        // const response = await fetch("/api/seats", {
+        //   method: "POST",
+        //   headers: { "Content-Type": "application/json" },
+        //   body: JSON.stringify({
+        //     seatId: selectedSeat.id,
+        //     status: "yours",
+        //     employeeName: employee.employee_name,
+        //     fromTime,
+        //     toTime,
+        //     bookingDate
+        //   })
+        // });
       } catch (error) {
         console.error("Error booking seat:", error);
       } finally {
