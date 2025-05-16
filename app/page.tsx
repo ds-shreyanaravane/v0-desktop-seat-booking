@@ -7,10 +7,10 @@ import FloorPlan from "@/components/FloorPlan";
 import StatsOverlay from "@/components/StatsOverlay";
 import SeatDialog from "@/components/SeatDialog";
 import LoginForm from "@/components/LoginForm";
-import { employees as dummyEmployees, mockSeats } from "@/lib/dummyData";
+import MyBookingsDialog from "@/components/MyBookingsDialog";
 
 type Employee = {
-  employee_id: number;
+  employee_id: string;
   employee_name: string;
   employee_email: string;
 };
@@ -20,11 +20,8 @@ export default function BookingApp() {
 
   // State
   const [employee, setEmployee] = useState<Employee | null>(null);
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginError, setLoginError] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [selectedTime, setSelectedTime] = useState<string>("");
-  const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [selectedSeatType, setSelectedSeatType] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [scale, setScale] = useState(1);
@@ -45,6 +42,8 @@ export default function BookingApp() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFromTime, setSelectedFromTime] = useState("");
   const [selectedToTime, setSelectedToTime] = useState("");
+  const [bookingError, setBookingError] = useState<string | null>(null);
+  const [isMyBookingsOpen, setIsMyBookingsOpen] = useState(false);
 
   // Generate 24-hour time slots
   const timeSlots = Array.from({ length: 24 }, (_, i) => {
@@ -60,7 +59,7 @@ export default function BookingApp() {
     }
   }, []);
 
-  // Dummy login validation (replace with real API in production)
+  // Handle login
   const handleLogin = async (employee: Employee, sid: string) => {
     setEmployee(employee);
     setSessionId(sid);
@@ -70,13 +69,8 @@ export default function BookingApp() {
   // Generate mock seats (replace with API call in production)
   useEffect(() => {
     if (!employee) return;
-    setSeats(mockSeats);
-    // Floor stats
-    const total = mockSeats.length;
-    const available = mockSeats.filter((seat) => seat.status === "available").length;
-    const booked = mockSeats.filter((seat) => seat.status === "booked").length;
-    const yours = mockSeats.filter((seat) => seat.status === "yours").length;
-    setFloorStats({ total, available, booked, yours });
+    fetchSeats(); // Fetch initial seats when employee logs in
+    // Dependencies removed to prevent auto-refetch on filter changes
   }, [employee]);
 
   // Pan/Zoom Handlers
@@ -123,71 +117,107 @@ export default function BookingApp() {
   };
 
   // Booking logic
+  const pad = (n: string | number) => n.toString().padStart(2, "0");
+  // Always return time in HH:mm:ss format, appending :00 if needed
+  const formatTime = (t: string) => {
+    // t can be "HH:mm", "H:mm", or "HH:mm:ss"
+    if (!t) return "";
+    const parts = t.split(":");
+    if (parts.length === 2) {
+      // HH:mm or H:mm
+      const [h, m] = parts;
+      return `${pad(h)}:${pad(m)}:00`;
+    } else if (parts.length === 3) {
+      // HH:mm:ss or H:mm:ss
+      const [h, m, s] = parts;
+      return `${pad(h)}:${pad(m)}:${pad(s)}`;
+    } else {
+      return t; // fallback, but should not happen
+    }
+  };
+
   const handleBookSeat = async (fromTime: string, toTime: string, bookingDate: string) => {
     if (selectedSeat && employee) {
       setIsLoading(true);
+      setBookingError(null);
       try {
-        // Update the seat status locally first
-        const updatedSeats = seats.map((seat) =>
-          seat.id === selectedSeat.id
-            ? {
-                ...seat,
-                status: "yours",
-                fromTime,
-                toTime,
-                bookingDate,
-                bookedBy: employee.employee_name,
-              }
-            : seat
-        );
-        
-        setSeats(updatedSeats);
-        
-        // Update floor stats
-        const total = updatedSeats.length;
-        const available = updatedSeats.filter((seat) => seat.status === "available").length;
-        const booked = updatedSeats.filter((seat) => seat.status === "booked").length;
-        const yours = updatedSeats.filter((seat) => seat.status === "yours").length;
-        setFloorStats({ total, available, booked, yours });
+        if (!fromTime || !toTime) {
+          setBookingError("Please select both from and to times.");
+          setIsLoading(false);
+          return;
+        }
+        // Validate time format: should be HH:mm, H:mm, or HH:mm:ss
+        const timeRegex = /^\d{1,2}:\d{2}(:\d{2})?$/;
+        if (!timeRegex.test(fromTime) || !timeRegex.test(toTime)) {
+          setBookingError("Invalid time format. Please use HH:mm or HH:mm:ss.");
+          setIsLoading(false);
+          return;
+        }
+        const formattedFromTime = formatTime(fromTime);
+        const formattedToTime = formatTime(toTime);
+        console.log('FE time- fromTime:', fromTime, 'toTime:', toTime);
+        console.log('BE time- fromTime:', formattedFromTime, 'toTime:', formattedToTime);
+        console.log('Booking payload:', {
+          seatId: selectedSeat.seat_no,
+          employeeId: employee.employee_id,
+          fromTime: formattedFromTime,
+          toTime: formattedToTime,
+          bookingDate
+        });
+        const response = await fetch("/api/seats", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            seatId: selectedSeat.seat_no,
+            employeeId: employee.employee_id,
+            fromTime: formattedFromTime,
+            toTime: formattedToTime,
+            bookingDate
+          })
+        });
 
-        // Close the dialog
+        console.log('Booking API response status:', response.status);
+        if (!response.ok) {
+          const error = await response.json();
+          console.error('Booking API error:', error);
+          setBookingError(error.error || 'Failed to book seat');
+          await fetchSeats();
+          return;
+        }
+
+        await fetchSeats();
         setIsDialogOpen(false);
         setSelectedSeat(null);
-
-        // In production, you would make an API call here
-        // const response = await fetch("/api/seats", {
-        //   method: "POST",
-        //   headers: { "Content-Type": "application/json" },
-        //   body: JSON.stringify({
-        //     seatId: selectedSeat.id,
-        //     status: "yours",
-        //     employeeName: employee.employee_name,
-        //     fromTime,
-        //     toTime,
-        //     bookingDate
-        //   })
-        // });
       } catch (error) {
-        console.error("Error booking seat:", error);
+        console.error('Booking exception:', error);
+        setBookingError('Failed to book seat');
+        await fetchSeats();
       } finally {
         setIsLoading(false);
       }
     }
   };
   
-  const handleCancelBooking = () => {
+  const handleCancelBooking = async () => {
     if (selectedSeat) {
-      setSeats(
-        seats.map((seat) =>
-          seat.id === selectedSeat.id ? { ...seat, status: "available", bookedBy: undefined } : seat,
-        ),
-      );
-      setFloorStats((prev) => ({
-        ...prev,
-        available: prev.available + 1,
-        yours: prev.yours - 1,
-      }));
-      setIsDialogOpen(false);
+      setIsLoading(true);
+      try {
+        const response = await fetch(`/api/seats?bookingId=${selectedSeat.booking_id}`, {
+          method: "DELETE"
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to cancel booking');
+        }
+
+        await fetchSeats();
+        setIsDialogOpen(false);
+        setSelectedSeat(null);
+      } catch (error) {
+        console.error("Error canceling booking:", error);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -196,9 +226,8 @@ export default function BookingApp() {
     // Always show blocked seats
     if (seat.status === "blocked") return true;
 
-    if (selectedZone && seat.zone !== selectedZone) return false;
     if (selectedSeatType && seat.type !== selectedSeatType) return false;
-    if (searchQuery && !seat.id.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (searchQuery && !seat.seat_no.toString().includes(searchQuery)) return false;
     // Filter by date and time range if set
     if (selectedFromTime && selectedToTime) {
       if (
@@ -217,13 +246,30 @@ export default function BookingApp() {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
-      if (selectedZone) params.append("zone", selectedZone);
       if (selectedSeatType) params.append("seatType", selectedSeatType);
       if (searchQuery) params.append("searchQuery", searchQuery);
+      if (employee?.employee_id) {
+        params.append("requestingEmployeeId", employee.employee_id);
+      }
+      
+      // Add date and time range parameters if they are selected
+      if (selectedDate) {
+        params.append("bookingDate", selectedDate.toISOString().slice(0, 10)); // YYYY-MM-DD
+        // Only add time filters if a date is also selected
+        if (selectedFromTime) { // Assuming selectedFromTime is HH:mm from SeatFilters
+          params.append("fromTime", formatTime(selectedFromTime)); // formatTime converts to HH:mm:ss
+        }
+        if (selectedToTime) {   // Assuming selectedToTime is HH:mm from SeatFilters
+          params.append("toTime", formatTime(selectedToTime));     // formatTime converts to HH:mm:ss
+        }
+      }
 
       const response = await fetch(`/api/seats?${params.toString()}`);
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error('Failed to fetch seats');
+      }
       
+      const data = await response.json();
       setSeats(data.seats);
       setFloorStats(data.stats);
     } catch (error) {
@@ -231,18 +277,6 @@ export default function BookingApp() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleLoginFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const found = dummyEmployees.find(emp => emp.employee_email === loginEmail.trim());
-    if (!found) {
-      setLoginError("Invalid email. Please try again.");
-      return;
-    }
-    // Simulate session id
-    const sid = Math.random().toString(36).slice(2);
-    await handleLogin(found, sid);
   };
 
   const checkSession = async (sid: string) => {
@@ -277,41 +311,25 @@ export default function BookingApp() {
     localStorage.removeItem("sessionId");
     setSessionId(null);
     setEmployee(null);
+    setIsMyBookingsOpen(false);
+  };
+
+  const handleApplyFilters = () => {
+    if (!employee) return; // Should not happen if filters are visible
+    fetchSeats();
   };
 
   // --- LOGIN FORM ---
   if (!employee) {
-    return (
-      <div className="bg-gradient-to-b from-[#1A1F2E] to-[#131725] min-h-screen flex items-center justify-center">
-        <form
-          onSubmit={handleLoginFormSubmit}
-          className="bg-[#1E2536] p-8 rounded-lg shadow-lg border border-[#2A3042] w-full max-w-sm"
-        >
-          <h2 className="text-2xl font-bold mb-6 text-white">Employee Login</h2>
-          <input
-            type="email"
-            value={loginEmail}
-            onChange={(e) => setLoginEmail(e.target.value)}
-            placeholder="Enter your email"
-            className="w-full p-3 mb-4 rounded bg-[#131725] border border-[#2A3042] text-white"
-            required
-          />
-          {loginError && <div className="text-red-500 mb-4">{loginError}</div>}
-          <button
-            type="submit"
-            className="w-full bg-gradient-to-r from-purple-600 to-indigo-700 text-white py-2 rounded hover:from-purple-700 hover:to-indigo-800"
-          >
-            Login
-          </button>
-        </form>
-      </div>
-    );
+    return <LoginForm onLogin={handleLogin} />;
   }
 
   // --- SEAT BOOKING UI ---
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-xl border border-[#2A3042]/50 bg-gradient-to-b from-[#1A1F2E] to-[#131725] p-0 shadow-xl">
+    <div className="fixed inset-0 w-screen h-screen overflow-hidden rounded-none border-none bg-gradient-to-b from-[#1A1F2E] to-[#131725] p-0 m-0">
       <TopBar
+        employee={employee}
+        onLogout={handleLogout}
         selectedDate={selectedDate}
         setSelectedDate={setSelectedDate}
         searchQuery={searchQuery}
@@ -322,6 +340,7 @@ export default function BookingApp() {
         resetView={resetView}
         isFullscreen={isFullscreen}
         toggleFullscreen={toggleFullscreen}
+        onShowMyBookings={() => setIsMyBookingsOpen(true)}
       />
       <div className="flex h-full">
         <SeatFilters
@@ -329,8 +348,6 @@ export default function BookingApp() {
           setSelectedDate={setSelectedDate}
           selectedTime={selectedTime}
           setSelectedTime={setSelectedTime}
-          selectedZone={selectedZone}
-          setSelectedZone={setSelectedZone}
           selectedSeatType={selectedSeatType}
           setSelectedSeatType={setSelectedSeatType}
           timeSlots={timeSlots}
@@ -338,6 +355,7 @@ export default function BookingApp() {
           setSelectedFromTime={setSelectedFromTime}
           selectedToTime={selectedToTime}
           setSelectedToTime={setSelectedToTime}
+          onApplyFilters={handleApplyFilters}
         />
         <FloorPlan
           seats={filteredSeats}
@@ -353,7 +371,7 @@ export default function BookingApp() {
           onMouseUpAction={handleMouseUp}
           isLoading={isLoading}
         />
-      </div>
+        </div>
       <StatsOverlay floorStats={floorStats} />
       <SeatDialog
         selectedSeat={selectedSeat}
@@ -363,6 +381,14 @@ export default function BookingApp() {
         selectedTime={selectedTime}
         handleBookSeat={handleBookSeat}
         handleCancelBooking={handleCancelBooking}
+        bookingError={bookingError}
+      />
+      <MyBookingsDialog
+        isOpen={isMyBookingsOpen}
+        onOpenChange={setIsMyBookingsOpen}
+        onBookingCancelled={() => {
+          fetchSeats();
+        }}
       />
     </div>
   );
