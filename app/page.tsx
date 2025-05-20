@@ -44,6 +44,7 @@ export default function BookingApp() {
   const [selectedToTime, setSelectedToTime] = useState("");
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [isMyBookingsOpen, setIsMyBookingsOpen] = useState(false);
+  const [filtersApplied, setFiltersApplied] = useState(false);
 
   // Generate 24-hour time slots
   const timeSlots = Array.from({ length: 24 }, (_, i) => {
@@ -222,24 +223,22 @@ export default function BookingApp() {
   };
 
   // Filter seats
-  const filteredSeats = seats.filter((seat) => {
-    // Always show blocked seats
-    if (seat.status === "blocked") return true;
-
-    if (selectedSeatType && seat.type !== selectedSeatType) return false;
-    if (searchQuery && !seat.seat_no.toString().includes(searchQuery)) return false;
-    // Filter by date and time range if set
-    if (selectedFromTime && selectedToTime) {
-      if (
-        seat.bookingDate === (selectedDate ? selectedDate.toISOString().slice(0, 10) : undefined) &&
-        seat.fromTime && seat.toTime &&
-        !(selectedToTime <= seat.fromTime || selectedFromTime >= seat.toTime)
-      ) {
-        return false;
-      }
-    }
-    return true;
-  });
+  const filteredSeats = filtersApplied
+    ? seats.filter((seat) => {
+        // Always show blocked seats if no time filter is applied
+        if (!selectedFromTime || !selectedToTime) {
+          if (seat.status === "blocked" || seat.status === "reserved") return true;
+        }
+        // Only show available seats for the selected time and type
+        if (selectedSeatType && seat.type !== selectedSeatType) return false;
+        if (searchQuery && !seat.seat_no.toString().includes(searchQuery)) return false;
+        if (selectedFromTime && selectedToTime) {
+          // Only show seats that are available for the entire slot
+          return seat.status === "available";
+        }
+        return seat.status === "available";
+      })
+    : seats;
   
 
   const fetchSeats = async () => {
@@ -316,7 +315,49 @@ export default function BookingApp() {
 
   const handleApplyFilters = () => {
     if (!employee) return; // Should not happen if filters are visible
+    setFiltersApplied(true);
     fetchSeats();
+  };
+
+  const handleClearFilters = () => {
+    setSelectedDate(undefined);
+    setSelectedTime("");
+    setSelectedSeatType(null);
+    setSelectedFromTime("");
+    setSelectedToTime("");
+    setFiltersApplied(false);
+    fetchSeats();
+  };
+
+  const handleSearchEmployeeSeat = async (employee: any) => {
+    try {
+      console.log('Searching for employee:', employee);
+      const response = await fetch(`/api/bookings/employee/${employee.employee_id}`);
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error response:', errorData);
+        throw new Error(errorData.error || 'Failed to fetch employee booking');
+      }
+      
+      const data = await response.json();
+      console.log('Booking data:', data);
+      
+      if (data.booking) {
+        // If there's a current booking, show it in the floor plan
+        setSelectedDate(new Date(data.booking.booking_date));
+        setSelectedFromTime(data.booking.from_time.slice(0, 5));
+        setSelectedToTime(data.booking.to_time.slice(0, 5));
+        setFiltersApplied(true);
+        fetchSeats();
+      } else {
+        alert('No current booking found for this employee.');
+      }
+    } catch (error) {
+      console.error('Error searching employee seat:', error);
+      alert(error instanceof Error ? error.message : 'Failed to search employee seat.');
+    }
   };
 
   // --- LOGIN FORM ---
@@ -325,8 +366,12 @@ export default function BookingApp() {
   }
 
   // --- SEAT BOOKING UI ---
+  // Determine current floor and wing from the first seat (if available)
+  const currentFloorNo = filteredSeats.length > 0 ? filteredSeats[0].floor_no : undefined;
+  const currentWingNo = filteredSeats.length > 0 ? filteredSeats[0].wing_no : undefined;
+
   return (
-    <div className="fixed inset-0 w-screen h-screen overflow-hidden rounded-none border-none bg-gradient-to-b from-[#1A1F2E] to-[#131725] p-0 m-0">
+    <div className="fixed inset-0 w-screen h-screen overflow-hidden rounded-none border-none bg-gradient-to-b from-[#1A1F2E] to-[#131725] p-0 m-0 flex flex-col">
       <TopBar
         employee={employee}
         onLogout={handleLogout}
@@ -341,8 +386,10 @@ export default function BookingApp() {
         isFullscreen={isFullscreen}
         toggleFullscreen={toggleFullscreen}
         onShowMyBookings={() => setIsMyBookingsOpen(true)}
+        floorNo={currentFloorNo}
+        wingNo={currentWingNo}
       />
-      <div className="flex h-full">
+      <div className="flex flex-row flex-1 min-h-0 overflow-auto">
         <SeatFilters
           selectedDate={selectedDate}
           setSelectedDate={setSelectedDate}
@@ -356,6 +403,8 @@ export default function BookingApp() {
           selectedToTime={selectedToTime}
           setSelectedToTime={setSelectedToTime}
           onApplyFilters={handleApplyFilters}
+          onClearFilters={handleClearFilters}
+          onSearchEmployeeSeat={handleSearchEmployeeSeat}
         />
         <FloorPlan
           seats={filteredSeats}
@@ -371,7 +420,7 @@ export default function BookingApp() {
           onMouseUpAction={handleMouseUp}
           isLoading={isLoading}
         />
-        </div>
+      </div>
       <StatsOverlay floorStats={floorStats} />
       <SeatDialog
         selectedSeat={selectedSeat}
