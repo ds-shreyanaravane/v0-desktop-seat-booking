@@ -16,6 +16,9 @@ type Seat = {
   wing_no: number;
   floor_no: number;
   is_cubic: boolean;
+  bookingDate?: string;
+  fromTime?: string;
+  toTime?: string;
 };
 
 type FloorPlanProps = {
@@ -39,6 +42,42 @@ export default function FloorPlan({
   onMouseUpAction,
   isLoading = false,
 }: FloorPlanProps) {
+  // Function to determine seat status based on current time and booking
+  const getSeatStatus = (seat: Seat) => {
+    const now = new Date();
+    const currentTime = now.toLocaleTimeString('en-US', { hour12: false });
+    const today = now.toISOString().split('T')[0];
+
+    // If it's a special object, return its original status
+    if (!['standard', 'cubic', 'meeting'].includes(seat.type)) {
+      return seat.status;
+    }
+
+    // If seat has booking information
+    if (seat.bookingDate) {
+      const bookingDate = new Date(seat.bookingDate).toISOString().split('T')[0];
+      
+      // For future bookings (after today), show as available
+      if (bookingDate > today) {
+        return 'available';
+      }
+      
+      // For today's bookings
+      if (bookingDate === today) {
+        // If current time is before booking start time
+        if (seat.fromTime && currentTime < seat.fromTime) {
+          return 'available';
+        }
+        // If current time is after booking end time
+        if (seat.toTime && currentTime > seat.toTime) {
+          return 'available';
+        }
+      }
+    }
+
+    return seat.status;
+  };
+
   return (
     <div
       className="flex-1 relative overflow-x-scroll overflow-y-auto bg-white text-black cursor-grab active:cursor-grabbing border-4 border-[#2A3042]"
@@ -68,6 +107,9 @@ export default function FloorPlan({
       >
         <div className="relative w-[2000px] h-full min-w-[1200px] min-h-[900px]">
           {seats.map((seat) => {
+            // Get the effective status for the seat
+            const effectiveStatus = getSeatStatus(seat);
+
             // Render seat icon for seats
             const bookableSeatTypes = ["seat", "standard", "cubic", "meeting"];
             if (bookableSeatTypes.includes(seat.type)) {
@@ -82,19 +124,19 @@ export default function FloorPlan({
                     height: `${seat.height}px`,
                     borderRadius: "6px",
                     backgroundColor:
-                      seat.status === "available"
+                      effectiveStatus === "available"
                         ? "rgba(34, 197, 94, 0.25)"
-                        : seat.status === "yours"
+                        : effectiveStatus === "yours"
                         ? "rgba(168, 85, 247, 0.25)"
-                        : seat.status === "reserved"
+                        : effectiveStatus === "reserved"
                         ? "rgba(156, 163, 175, 0.25)"
                         : "rgba(239, 68, 68, 0.25)",
                     border: `1.5px solid ${
-                      seat.status === "available"
+                      effectiveStatus === "available"
                         ? "#22c55e"
-                        : seat.status === "yours"
+                        : effectiveStatus === "yours"
                         ? "#a855f7"
-                        : seat.status === "reserved"
+                        : effectiveStatus === "reserved"
                         ? "#9ca3af"
                         : "#ef4444"
                     }`,
@@ -107,11 +149,11 @@ export default function FloorPlan({
                   <span style={{ 
                     fontWeight: 900,
                     fontSize: "1.5em",
-                    color: seat.status === "available"
+                    color: effectiveStatus === "available"
                       ? "#22c55e"
-                      : seat.status === "yours"
+                      : effectiveStatus === "yours"
                       ? "#a855f7"
-                      : seat.status === "reserved"
+                      : effectiveStatus === "reserved"
                       ? "#424242"
                       : "#ef4444"
                   }}>

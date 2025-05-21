@@ -225,18 +225,23 @@ export default function BookingApp() {
   // Filter seats
   const filteredSeats = filtersApplied
     ? seats.filter((seat) => {
-        // Always show blocked seats if no time filter is applied
-        if (!selectedFromTime || !selectedToTime) {
-          if (seat.status === "blocked" || seat.status === "reserved") return true;
+        // If no seat type is selected, show all seats and objects
+        if (!selectedSeatType) return true;
+        // Show all special objects always (not standard/cubic/meeting)
+        const specialTypes = [
+          'pillar', 'xerox', 'creche_room', 'pantry', 'gents_vc', 'handicap_vc', 'ladies_vc', 'parking', 'washroom', 'toilet', 'elevator', 'staircase', 'exit', 'fire_exit', 'cabin', 'reception', 'store', 'entry', 'entry_exit'
+        ];
+        if (specialTypes.includes(seat.type)) return true;
+        // Standard seat
+        if (selectedSeatType === 'standard') return seat.type === 'standard';
+        // Cubic seat
+        if (selectedSeatType === 'cubic') return seat.is_cubic === true;
+        // Meeting room seat
+        if (selectedSeatType === 'meeting') {
+          const meetingTypes = ['OMEGA', 'ASTER', 'COSMOS', 'ARENA', 'meeting_room'];
+          return meetingTypes.includes(seat.type.toUpperCase()) || seat.type === 'meeting_room';
         }
-        // Only show available seats for the selected time and type
-        if (selectedSeatType && seat.type !== selectedSeatType) return false;
-        if (searchQuery && !seat.seat_no.toString().includes(searchQuery)) return false;
-        if (selectedFromTime && selectedToTime) {
-          // Only show seats that are available for the entire slot
-          return seat.status === "available";
-        }
-        return seat.status === "available";
+        return false;
       })
     : seats;
   
@@ -245,7 +250,12 @@ export default function BookingApp() {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
-      if (selectedSeatType) params.append("seatType", selectedSeatType);
+      
+      // Only add seat type filter if filters are applied
+      if (filtersApplied && selectedSeatType) {
+        params.append("seatType", selectedSeatType);
+      }
+      
       if (searchQuery) params.append("searchQuery", searchQuery);
       if (employee?.employee_id) {
         params.append("requestingEmployeeId", employee.employee_id);
@@ -254,14 +264,16 @@ export default function BookingApp() {
       // Add date and time range parameters if they are selected
       if (selectedDate) {
         params.append("bookingDate", selectedDate.toISOString().slice(0, 10)); // YYYY-MM-DD
-        // Only add time filters if a date is also selected
-        if (selectedFromTime) { // Assuming selectedFromTime is HH:mm from SeatFilters
-          params.append("fromTime", formatTime(selectedFromTime)); // formatTime converts to HH:mm:ss
+        if (selectedFromTime) {
+          params.append("fromTime", formatTime(selectedFromTime));
         }
-        if (selectedToTime) {   // Assuming selectedToTime is HH:mm from SeatFilters
-          params.append("toTime", formatTime(selectedToTime));     // formatTime converts to HH:mm:ss
+        if (selectedToTime) {
+          params.append("toTime", formatTime(selectedToTime));
         }
       }
+
+      // Add a parameter to indicate if filters are applied
+      params.append("filtersApplied", filtersApplied.toString());
 
       const response = await fetch(`/api/seats?${params.toString()}`);
       if (!response.ok) {
@@ -269,7 +281,40 @@ export default function BookingApp() {
       }
       
       const data = await response.json();
-      setSeats(data.seats);
+      
+      // If filters are not applied, show all seats
+      if (!filtersApplied) {
+        setSeats(data.seats);
+      } else {
+        // If filters are applied, filter the seats based on type
+        const filteredSeats = data.seats.filter((seat: any) => {
+          // Show all special objects
+          const specialTypes = [
+            'pillar', 'xerox', 'creche_room', 'pantry', 'gents_vc', 'handicap_vc', 
+            'ladies_vc', 'parking', 'washroom', 'toilet', 'elevator', 'staircase', 
+            'exit', 'fire_exit', 'cabin', 'reception', 'store', 'entry', 'entry_exit'
+          ];
+          if (specialTypes.includes(seat.type)) return true;
+
+          // If no seat type selected, show all seats
+          if (!selectedSeatType) return true;
+
+          // Filter based on seat type
+          switch (selectedSeatType) {
+            case 'standard':
+              return seat.type === 'standard';
+            case 'cubic':
+              return seat.is_cubic === true;
+            case 'meeting':
+              const meetingTypes = ['OMEGA', 'ASTER', 'COSMOS', 'ARENA', 'meeting_room'];
+              return meetingTypes.includes(seat.type.toUpperCase()) || seat.type === 'meeting_room';
+            default:
+              return true;
+          }
+        });
+        setSeats(filteredSeats);
+      }
+      
       setFloorStats(data.stats);
     } catch (error) {
       console.error("Error fetching seats:", error);
@@ -388,6 +433,8 @@ export default function BookingApp() {
         onShowMyBookings={() => setIsMyBookingsOpen(true)}
         floorNo={currentFloorNo}
         wingNo={currentWingNo}
+        seats={filteredSeats}
+        handleBookSeat={handleBookSeat}
       />
       <div className="flex flex-row flex-1 min-h-0 overflow-auto">
         <SeatFilters

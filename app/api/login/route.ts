@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectDB, sql } from '@/lib/db';
+import Image from 'next/image';
 
 export async function POST(request: Request) {
   try {

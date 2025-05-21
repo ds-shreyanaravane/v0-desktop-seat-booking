@@ -117,6 +117,10 @@ const pad = (n: string | number): string => n.toString().padStart(2, "0");
 
 // Removed formatTimeToSQLTime7 as we'll use VARCHAR(8) and send HH:mm:ss directly
 
+const today = new Date();
+const todayStr = today.toISOString().slice(0, 10); // "YYYY-MM-DD"
+const minFromTime = today.toTimeString().slice(0, 5); // "HH:mm"
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -129,6 +133,24 @@ export async function GET(request: Request) {
     const requestingEmployeeId = searchParams.get('requestingEmployeeId'); // Added
 
     const pool = await connectDB();
+
+    // Update seat status for today's bookings based on current time
+    await pool.request().query(`
+      UPDATE Seats
+      SET is_booked = 0, status = 'available'
+      WHERE seat_no IN (
+        SELECT s.seat_no
+        FROM Seats s
+        LEFT JOIN booking b ON s.seat_no = b.seat_no
+        WHERE
+          b.booking_date = CONVERT(date, GETDATE())
+          AND (
+            CAST(GETDATE() AS time) < CAST(b.from_time AS time)
+            OR
+            CAST(GETDATE() AS time) > CAST(b.to_time AS time)
+          )
+      )
+    `);
 
     // Determine the date to filter bookings against
     // If filterBookingDateStr is provided, use that, otherwise default to today for general availability status.

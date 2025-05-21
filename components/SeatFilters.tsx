@@ -48,18 +48,6 @@ export default function SeatFilters({
     return options;
   }, []);
 
-  // Get today's date string
-  const todayStr = new Date().toISOString().slice(0, 10);
-  // If selected date is today, min from time is now (rounded up to next 30 min)
-  const now = new Date();
-  let minFromTime = "00:00";
-  if (selectedDate && selectedDate.toISOString().slice(0, 10) === todayStr) {
-    const minutes = now.getMinutes();
-    const roundedMinutes = minutes % 30 === 0 ? minutes : minutes + (30 - (minutes % 30));
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    minFromTime = `${pad(now.getHours() + (roundedMinutes === 60 ? 1 : 0))}:${pad(roundedMinutes === 60 ? 0 : roundedMinutes)}`;
-  }
-
   const today = startOfDay(new Date());
 
   const [employeeSearch, setEmployeeSearch] = useState("");
@@ -109,7 +97,6 @@ export default function SeatFilters({
                 <SelectItem
                   key={time}
                   value={time}
-                  disabled={selectedDate && selectedDate.toISOString().slice(0, 10) === todayStr && time < minFromTime}
                   className="text-black hover:bg-[#e0e0e0] focus:bg-[#e0e0e0]"
                 >
                   {time}
