@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
-import MyBookings from "@/components/my-bookings"
+import MyBookings from "@/app/useless/my-bookings"
 
 interface AppSidebarProps {
   isOpen: boolean

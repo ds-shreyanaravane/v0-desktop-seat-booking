@@ -1,0 +1,6 @@
+seat_no,is_booked,wing_no,floor_no,is_cubic,x,y,width,height,type,zone,angle,status
+1,0,A,4,0,245,285,40,25,standard,tender,20,available
+2,0,A,4,0,290,285,40,25,standard,tender,20,available
+3,1,A,4,0,335,285,40,25,standard,tender,20,booked
+4,0,A,4,1,380,285,40,25,cubic,wing,0,available
+5,0,B,4,0,425,285,40,25,standard,wing,-20,available 
