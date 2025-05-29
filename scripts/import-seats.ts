@@ -33,12 +33,13 @@ async function readSeatExcel(filePath: string) {
         "M": "gents_vc",
         "F": "ladies_vc",
         "H": "handicap_vc",
-        "ENTRY/EXIT": "entry_exit",
+        "ENTRY_EXIT": "entry_exit",
         "OMEGA": "meeting_room",
         "ASTER": "meeting_room",
         "COSMOS": "meeting_room",
-        "ARENA":"meeting_room"   ,
+        "ARENA":"meeting_room",
         "STORE": "store",
+        "HUB ROOM": "hub_room",
         // Add more as needed
       };
 
@@ -56,10 +57,6 @@ async function readSeatExcel(filePath: string) {
         zone: String(seat.zone || 'tender').trim(),
         angle: Number(seat.angle || 0),
         status: String(seat.status || 'available').trim(),
-        style: {
-          minWidth: "48px",
-          minHeight: "48px",
-        }
       };
     });
   } catch (error) {
@@ -105,10 +102,9 @@ async function importSeats() {
           .input('zone', sql.VarChar(50), seat.zone)
           .input('angle', sql.Int, seat.angle)
           .input('status', sql.VarChar(20), seat.status)
-          .input('style', sql.VarChar(255), seat.style)
           .query(`
-            INSERT INTO Seats (seat_no, is_booked, wing_no, floor_no, is_cubic, x, y, width, height, type, zone, angle, status, style)
-            VALUES (@seat_no, @is_booked, @wing_no, @floor_no, @is_cubic, @x, @y, @width, @height, @type, @zone, @angle, @status, @style)
+            INSERT INTO Seats (seat_no, is_booked, wing_no, floor_no, is_cubic, x, y, width, height, type, zone, angle, status)
+            VALUES (@seat_no, @is_booked, @wing_no, @floor_no, @is_cubic, @x, @y, @width, @height, @type, @zone, @angle, @status)
           `);
         console.log(`Imported seat: ${seat.seat_no}`);
         successCount++;

@@ -34,21 +34,21 @@ async function connectToDatabase() {
     const tableCheck = await sql.query`
       SELECT COUNT(*) as tableCount 
       FROM INFORMATION_SCHEMA.TABLES 
-      WHERE TABLE_NAME = 'Employees'
+      WHERE TABLE_NAME = 'submissions'
     `;
     console.log('Employees table exists:', tableCheck.recordset[0].tableCount > 0);
 
     // Get all employees
-    const result = await sql.query`SELECT * FROM Employees`;
+    const result = await sql.query`SELECT * FROM submissions`;
     console.log('Employees in database:', result.recordset);
 
     // Test login with a sample email
-    const testEmail = 'john.doe@company.com';
-    const loginResult = await sql.query`
-      SELECT * FROM Employees 
-      WHERE employee_email = ${testEmail}
-    `;
-    console.log('Login test result:', loginResult.recordset);
+    //const testEmail = 'john.doe@company.com';
+    //const loginResult = await sql.query`
+      //SELECT * FROM Employees 
+      //WHERE employee_email = ${testEmail}
+    //`;
+    //console.log('Login test result:', loginResult.recordset);
 
   } catch (err) {
     console.error('Database connection failed:', err);

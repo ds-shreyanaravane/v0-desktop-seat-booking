@@ -148,7 +148,7 @@ export default function FloorPlan({
                   <span style={{ fontSize: "1.5em", lineHeight: 1 }} role="img" aria-label="seat">🪑</span>
                   <span style={{ 
                     fontWeight: 900,
-                    fontSize: "1.5em",
+                    fontSize: "2.5em",
                     color: effectiveStatus === "available"
                       ? "#22c55e"
                       : effectiveStatus === "yours"
@@ -248,7 +248,7 @@ export default function FloorPlan({
               specialLabel = "STAIRCASE";
               specialBorder = "#666";
             }
-            if (seat.type === "exit") { 
+            if (seat.type === "entry_exit") { 
               specialBg = "#ffe6e6"; 
               specialIcon = "🚪"; 
               specialLabel = "EXIT";
@@ -324,13 +324,13 @@ export default function FloorPlan({
                 }}
               >
                 {specialIcon && (
-                  <span style={{ fontSize: "1.5em", lineHeight: 1 }} role="img" aria-label={seat.type}>
+                  <span style={{ fontSize: "2.5em", lineHeight: 1 }} role="img" aria-label={seat.type}>
                     {specialIcon}
                   </span>
                 )}
                 <span style={{ 
                   fontWeight: 600, 
-                  fontSize: "0.8em",
+                  fontSize: "1.8em",
                   textAlign: "center",
                   marginTop: specialIcon ? "4px" : "0"
                 }}>

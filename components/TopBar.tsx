@@ -31,6 +31,7 @@ type TopBarProps = {
   wingNo?: string | number;
   seats: any[];
   handleBookSeat: (fromTime: string, toTime: string, bookingDate: string, seat: any) => void;
+  onSeatSearch: (seat: any) => void;
 };
 
 export default function TopBar({
@@ -51,28 +52,40 @@ export default function TopBar({
   wingNo,
   seats = [],
   handleBookSeat,
+  onSeatSearch,
 }: TopBarProps) {
   const [isSeatDialogOpen, setIsSeatDialogOpen] = useState(false);
   const [selectedSeat, setSelectedSeat] = useState(null);
 
+  const handleSearch = () => {
+    const seatNo = searchQuery.trim();
+    if (!seatNo) return;
+    const foundSeat = seats.find(seat => String(seat.seat_no) === seatNo);
+    if (foundSeat) {
+      onSeatSearch(foundSeat);
+    } else {
+      alert('Seat not found');
+    }
+  };
+
   return (
-    <div className="h-16 flex items-center justify-between px-4 md:px-6 bg-[#005792] border-b-2 border-[#2A3042] text-white shadow-md">
-      <div className="flex items-center mr-4">
-        <Image src="/marico-icon.png" alt="Marico Logo" width={40} height={40} className="mr-3" priority />
-        <h1 className="text-lg md:text-xl font-semibold text-white flex items-center gap-4">
+    <div className="h-40 flex items-center justify-between px-20 md:px-32 bg-[#005792] border-b-8 border-[#2A3042] text-white shadow-2xl text-4xl">
+      <div className="flex items-center mr-16">
+        <Image src="/marico-icon.png" alt="Marico Logo" width={96} height={96} className="mr-10" priority />
+        <h1 className="text-5xl md:text-6xl font-extrabold text-white flex items-center gap-16">
           Seat Booking
           {typeof floorNo !== 'undefined' && (
-            <span className="ml-4 px-3 py-1 rounded bg-[#8BC34A]/20 text-[#8BC34A] text-sm font-bold">Floor {floorNo}</span>
+            <span className="ml-12 px-10 py-4 rounded-2xl bg-[#8BC34A]/20 text-[#8BC34A] text-3xl font-extrabold">Floor {floorNo}</span>
           )}
           {typeof wingNo !== 'undefined' && (
-            <span className="ml-2 px-3 py-1 rounded bg-[#43a047]/20 text-[#43a047] text-sm font-bold">Wing {wingNo}</span>
+            <span className="ml-8 px-10 py-4 rounded-2xl bg-[#43a047]/20 text-[#43a047] text-3xl font-extrabold">Wing {wingNo}</span>
           )}
         </h1>
       </div>
 
       <div className="flex flex-1 items-center">
-        <div className="relative w-full max-w-xs md:max-w-sm mr-6">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-200" />
+        <div className="relative w-full max-w-2xl md:max-w-4xl mr-20">
+          <Search className="absolute left-8 top-1/2 transform -translate-y-1/2 h-14 w-14 text-gray-200" />
           <input
             type="text"
             placeholder="Search Seat No..."
@@ -80,57 +93,51 @@ export default function TopBar({
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && searchQuery.trim()) {
-                const seatNo = parseInt(searchQuery.trim(), 10);
-                const foundSeat = seats.find(seat => Number(seat.seat_no) === seatNo);
-                if (foundSeat) {
-                  setSelectedSeat(foundSeat);
-                  setIsSeatDialogOpen(true);
-                } else {
-                  alert("Seat not found");
-                }
+                handleSearch();
               }
             }}
-            className="w-full bg-white border border-[#2A3042] rounded-md pl-10 pr-3 py-2 text-sm text-black focus:ring-1 focus:ring-[#8BC34A] focus:border-[#8BC34A] placeholder-gray-500"
+            className="w-full bg-white border-4 border-[#2A3042] rounded-2xl pl-28 pr-10 py-8 text-4xl text-black focus:ring-4 focus:ring-[#8BC34A] focus:border-[#8BC34A] placeholder-gray-500"
           />
         </div>
         {employee ? (
-          <div className="flex items-center space-x-2 md:space-x-3">
-            <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-[#1976d2] cursor-default">
-              <User size={18} className="text-[#8BC34A]"/>
-              <span className="text-sm font-medium text-white hidden md:inline">{employee.employee_name}</span>
+          <div className="flex items-center space-x-12 md:space-x-16">
+            <div className="flex items-center space-x-8 p-8 rounded-2xl hover:bg-[#1976d2] cursor-default">
+              <User size={56} className="text-[#8BC34A]"/>
+              <span className="text-4xl font-extrabold text-white hidden md:inline">{employee.employee_name}</span>
             </div>
             <button 
               onClick={onShowMyBookings}
               title="My Bookings"
-              className="p-2 hover:bg-[#1976d2] rounded-md"
+              className="flex items-center gap-4 p-8 hover:bg-[#1976d2] rounded-2xl"
             >
-              <BookUser size={18} className="text-white" />
+              <BookUser size={56} className="text-white" />
+              <span className="text-4xl font-extrabold text-white">My Bookings</span>
             </button>
             <button 
               onClick={onLogout} 
               title="Logout"
-              className="p-2 hover:bg-[#1976d2] rounded-md"
+              className="p-8 hover:bg-[#1976d2] rounded-2xl"
             >
-              <LogOut size={18} className="text-[#F44336]"/>
+              <LogOut size={56} className="text-[#F44336]"/>
             </button>
           </div>
         ) : (
-          <span className="text-sm ml-4">Not logged in</span>
+          <span className="text-4xl ml-16">Not logged in</span>
         )}
       </div>
 
-      <div className="hidden md:flex items-center space-x-1 ml-4">
-        <button onClick={handleZoomIn} title="Zoom In" className="p-2 hover:bg-[#1976d2] rounded-md">
-          <Plus size={18} className="text-white" />
+      <div className="hidden md:flex items-center space-x-8 ml-16">
+        <button onClick={handleZoomIn} title="Zoom In" className="p-8 hover:bg-[#1976d2] rounded-2xl">
+          <Plus size={56} className="text-white" />
         </button>
-        <button onClick={handleZoomOut} title="Zoom Out" className="p-2 hover:bg-[#1976d2] rounded-md">
-          <Minus size={18} className="text-white" />
+        <button onClick={handleZoomOut} title="Zoom Out" className="p-8 hover:bg-[#1976d2] rounded-2xl">
+          <Minus size={56} className="text-white" />
         </button>
-        <button onClick={resetView} title="Reset View" className="p-2 hover:bg-[#1976d2] rounded-md">
-          <RefreshCw size={18} className="text-white" />
+        <button onClick={resetView} title="Reset View" className="p-8 hover:bg-[#1976d2] rounded-2xl">
+          <RefreshCw size={56} className="text-white" />
         </button>
-        <button onClick={toggleFullscreen} title="Toggle Fullscreen" className="p-2 hover:bg-[#1976d2] rounded-md">
-          <Maximize2 size={18} className="text-white" />
+        <button onClick={toggleFullscreen} title="Toggle Fullscreen" className="p-8 hover:bg-[#1976d2] rounded-2xl">
+          <Maximize2 size={56} className="text-white" />
         </button>
       </div>
 

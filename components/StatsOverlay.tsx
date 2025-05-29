@@ -7,19 +7,23 @@ type FloorStats = {
 
 export default function StatsOverlay({ floorStats }: { floorStats: FloorStats }) {
     return (
-      <div className="absolute bottom-4 right-4 bg-[#1E2536]/80 backdrop-blur-md rounded-lg border border-[#2A3042] p-3 shadow-lg">
-        <div className="flex space-x-4">
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-emerald-500 rounded-full mr-2"></div>
-            <span className="text-xs text-[#D0D5E0]">{floorStats.available} Available</span>
+      <div className="absolute top-40 right-8 bg-[#005792] backdrop-blur-lg rounded-2xl border-2 border-[#2A3042] p-10 shadow-2xl min-w-[600px]">
+        <div className="flex flex-col space-y-10">
+          <div className="flex items-center text-4xl font-extrabold">
+            <div className="w-10 h-10 bg-green-500 rounded-full mr-8 border-4 border-green-700"></div>
+            <span className="text-white">Available</span>
           </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-rose-500 rounded-full mr-2"></div>
-            <span className="text-xs text-[#D0D5E0]">{floorStats.booked} Booked</span>
+          <div className="flex items-center text-4xl font-extrabold">
+            <div className="w-10 h-10 bg-purple-500 rounded-full mr-8 border-4 border-purple-700"></div>
+            <span className="text-white">Booked by You</span>
           </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
-            <span className="text-xs text-[#D0D5E0]">{floorStats.yours} Your Bookings</span>
+          <div className="flex items-center text-4xl font-extrabold">
+            <div className="w-10 h-10 bg-red-500 rounded-full mr-8 border-4 border-red-700"></div>
+            <span className="text-white">Booked by Others</span>
+          </div>
+          <div className="flex items-center text-4xl font-extrabold">
+            <div className="w-10 h-10 bg-gray-400 rounded-full mr-8 border-4 border-gray-600"></div>
+            <span className="text-white">Reserved</span>
           </div>
         </div>
       </div>

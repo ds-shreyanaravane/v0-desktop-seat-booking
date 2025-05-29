@@ -1,0 +1,12 @@
+model CAPEXRequest {
+  id              String    @id @default(cuid())
+  amount          Float
+  reason          String
+  status          String    // pending, approved, rejected
+  currentApprover String    // manager, cio, cfo, completed
+  managerApproval Boolean?
+  cioApproval     Boolean?
+  cfoApproval     Boolean?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+} 

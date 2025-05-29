@@ -3,16 +3,16 @@ import { connectDB, sql } from '@/lib/db';
 import { verifySession, addSession, removeSession } from '@/lib/session'; // Assuming you have a session verification utility
 
 export async function GET(request: Request) {
-  try {
     const session = await verifySession();
-    console.log('[/api/bookings/me] Session details received:', session);
-
     if (!session || !session.employeeId) {
       console.error('[/api/bookings/me] Unauthorized access attempt or missing employeeId in session.');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+  const employeeId = session.employeeId;
+  try {
+    console.log('[/api/bookings/me] Session details received:', session);
 
-    console.log(`[/api/bookings/me] Fetching bookings for employeeId: ${session.employeeId}`);
+    console.log(`[/api/bookings/me] Fetching bookings for employeeId: ${employeeId}`);
 
     const { searchParams } = new URL(request.url); // Added to get query params
     const fromDate = searchParams.get('fromDate'); // Added
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
       WHERE b.employee_id = @employeeId
     `;
 
-    const requestPool = pool.request().input('employeeId', sql.VarChar, session.employeeId);
+    const requestPool = pool.request().input('employeeId', sql.VarChar, employeeId);
 
     if (fromDate) {
       query += ` AND b.booking_date >= @fromDate`;
@@ -45,28 +45,12 @@ export async function GET(request: Request) {
       requestPool.input('toDate', sql.Date, toDate);
     }
 
-    query += ` ORDER BY b.booking_date DESC, b.from_time DESC;`;
-    
-    console.log('[/api/bookings/me] Executing query:', query);
-    // For more detailed debugging, you might log parameters separately if your DB driver supports it clearly
-
     const result = await requestPool.query(query);
+    console.log('[/api/bookings/me] Query executed successfully');
 
-    console.log(`[/api/bookings/me] Raw bookings count from DB: ${result.recordset.length}`);
-    if (result.recordset.length > 0) {
-      console.log('[/api/bookings/me] First raw booking:', result.recordset[0]);
-    }
-
-    const bookings = result.recordset.map(booking => ({
-      ...booking,
-      booking_date: booking.booking_date ? new Date(booking.booking_date).toISOString().split('T')[0] : null, // Format to YYYY-MM-DD
-    }));
-
-    return NextResponse.json({ bookings });
-
+    return NextResponse.json({ bookings: result.recordset });
   } catch (error) {
-    console.error('Error fetching user bookings:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch bookings';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    console.error('[/api/bookings/me] Error executing query:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 } 

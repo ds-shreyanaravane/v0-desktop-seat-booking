@@ -149,20 +149,25 @@ export default function SeatDialog({
   };
 
   if (!selectedSeat) return null;
+  const today = new Date();
+  const todayString = formatDateFns(today, "EEEE, MMMM d, yyyy");
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-      <DialogContent className="max-w-md bg-[#005792] p-8 shadow-xl border border-[#2A3042]/50 text-white rounded-lg">
+      <DialogContent className="max-w-6xl bg-gradient-to-br from-[#005792] to-[#003d6b] p-20 shadow-2xl border-2 border-[#2A3042]/50 text-white rounded-2xl backdrop-blur-sm">
         <DialogHeader>
-          <DialogTitle className="mb-6 text-center text-2xl font-bold text-white flex items-center justify-center">
+          <div className="text-center text-4xl font-extrabold text-white mb-8 bg-white/10 p-6 rounded-xl backdrop-blur-sm">
+            {todayString}
+          </div>
+          <DialogTitle className="mb-12 text-center text-6xl font-bold text-white flex items-center justify-center">
             Seat {selectedSeat.id}
             <Badge
               variant="outline"
               className={
                 selectedSeat.status === "available"
-                  ? "bg-[#8BC34A]/20 text-[#43a047] border-[#8BC34A]/30 ml-2"
+                  ? "bg-[#8BC34A]/20 text-[#43a047] border-[#8BC34A]/30 ml-8 text-3xl px-8 py-4 hover:bg-[#8BC34A]/30 transition-all duration-300"
                   : selectedSeat.status === "yours"
-                  ? "bg-[#005792]/20 text-[#005792] border-[#005792]/30 ml-2"
-                  : "bg-rose-500/20 text-rose-400 border-rose-500/30 ml-2"
+                  ? "bg-[#005792]/20 text-[#005792] border-[#005792]/30 ml-8 text-3xl px-8 py-4 hover:bg-[#005792]/30 transition-all duration-300"
+                  : "bg-rose-500/20 text-rose-400 border-rose-500/30 ml-8 text-3xl px-8 py-4 hover:bg-rose-500/30 transition-all duration-300"
               }
             >
               {selectedSeat.status === "yours"
@@ -170,88 +175,74 @@ export default function SeatDialog({
                 : selectedSeat.status.charAt(0).toUpperCase() + selectedSeat.status.slice(1)}
             </Badge>
           </DialogTitle>
-          <DialogDescription className="text-gray-200 text-center">
+          <DialogDescription className="text-gray-200 text-center text-4xl mb-10 bg-white/5 p-6 rounded-xl backdrop-blur-sm">
             {internalBookingDate ? formatDateFns(parseISO(internalBookingDate), "EEEE, MMMM d, yyyy") : "No date selected"}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-6 mt-6">
-          <div>
-            <label className="block text-sm font-medium text-white mb-2">Date</label>
+        <div className="space-y-12 mt-12">
+          <div className="bg-white/5 p-8 rounded-xl backdrop-blur-sm hover:bg-white/10 transition-all duration-300">
+            <label className="block text-4xl font-medium text-white mb-8">Date</label>
             <input
               type="date"
               value={internalBookingDate}
               min={minDate}
               onChange={e => setInternalBookingDate(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-[#2A3042] bg-[#1A1F2E] px-3 py-2 text-white placeholder-gray-400 focus:border-[#8BC34A] focus:outline-none focus:ring-1 focus:ring-[#8BC34A]"
+              className="mt-1 block w-full rounded-xl border-2 border-[#2A3042] bg-[#1A1F2E]/80 px-12 py-10 text-4xl text-white placeholder-gray-400 focus:border-[#8BC34A] focus:outline-none focus:ring-4 focus:ring-[#8BC34A] transition-all duration-300 hover:bg-[#1A1F2E]"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-white mb-2">Time</label>
-            <div className="flex items-center space-x-2">
+          <div className="bg-white/5 p-8 rounded-xl backdrop-blur-sm hover:bg-white/10 transition-all duration-300">
+            <label className="block text-4xl font-medium text-white mb-8">Time</label>
+            <div className="flex items-center space-x-12">
               <input
                 type="time"
                 value={fromTime}
                 min={minTimeToday}
                 onChange={e => setFromTime(e.target.value)}
-                className="block w-full rounded-md border border-[#2A3042] bg-[#1A1F2E] px-3 py-2 text-white focus:border-[#8BC34A] focus:outline-none focus:ring-1 focus:ring-[#8BC34A]"
+                className="block w-full rounded-xl border-2 border-[#2A3042] bg-[#1A1F2E]/80 px-12 py-10 text-4xl text-white focus:border-[#8BC34A] focus:outline-none focus:ring-4 focus:ring-[#8BC34A] transition-all duration-300 hover:bg-[#1A1F2E]"
               />
-              <span className="text-white">to</span>
+              <span className="text-white text-4xl">to</span>
               <input
                 type="time"
                 value={toTime}
-                min={fromTime || minTimeToday}
+                min={fromTime}
                 onChange={e => setToTime(e.target.value)}
-                className="block w-full rounded-md border border-[#2A3042] bg-[#1A1F2E] px-3 py-2 text-white focus:border-[#8BC34A] focus:outline-none focus:ring-1 focus:ring-[#8BC34A]"
+                className="block w-full rounded-xl border-2 border-[#2A3042] bg-[#1A1F2E]/80 px-12 py-10 text-4xl text-white focus:border-[#8BC34A] focus:outline-none focus:ring-4 focus:ring-[#8BC34A] transition-all duration-300 hover:bg-[#1A1F2E]"
               />
             </div>
           </div>
           {(validationError || bookingError) && (
-            <div className="text-red-500 text-sm p-3 bg-red-900/20 border border-red-700/30 rounded-md">
+            <div className="text-red-500 text-2xl bg-red-900/20 p-8 rounded-xl border-2 border-red-700/30 animate-shake">
               {validationError || bookingError}
             </div>
           )}
           {((selectedSeat.from_time || selectedSeat.fromTime) && (selectedSeat.to_time || selectedSeat.toTime) && (selectedSeat.booking_date || selectedSeat.bookingDate)) && (
-            <div className="p-3 bg-[#E8F5E9] rounded-lg border border-[#8BC34A]/30 text-[#1A1F2E]">
-              <Clock className="h-4 w-4 text-[#43a047] inline mr-2" />
+            <div className="p-6 bg-[#E8F5E9]/90 rounded-xl border-2 border-[#8BC34A]/30 text-[#1A1F2E] text-xl backdrop-blur-sm hover:bg-[#E8F5E9] transition-all duration-300">
+              <Clock className="h-6 w-6 text-[#43a047] inline mr-4" />
               <span className="font-semibold">Booked Time:</span> {formatDateFns(new Date(selectedSeat.booking_date || selectedSeat.bookingDate), "MMMM d, yyyy")}, {getTimeString(selectedSeat.from_time || selectedSeat.fromTime)} - {getTimeString(selectedSeat.to_time || selectedSeat.toTime)}
             </div>
           )}
           {(selectedSeat.status === "booked" || selectedSeat.status === "yours") && selectedSeat.bookedBy && !validationError && !bookingError && (
-            <div className="p-3 bg-[#F5FAFF] rounded-lg border border-[#2A3042]/30 text-[#1A1F2E]">
-              <User className="h-4 w-4 text-[#005792] inline mr-2" />
+            <div className="p-6 bg-[#F5FAFF]/90 rounded-xl border-2 border-[#2A3042]/30 text-[#1A1F2E] text-xl backdrop-blur-sm hover:bg-[#F5FAFF] transition-all duration-300">
+              <User className="h-6 w-6 text-[#005792] inline mr-4" />
               <span className="font-semibold">Booked by:</span> {selectedSeat.bookedBy}
             </div>
           )}
-          {selectedSeat.status === "yours" && selectedSeat.booking_date && selectedSeat.from_time && selectedSeat.to_time && (
-            <div className="p-3 bg-[#E8F5E9] rounded-lg border border-[#8BC34A]/30 text-[#1A1F2E] mb-4">
-              <span className="font-semibold">Booked Time:</span> {formatDateFns(new Date(selectedSeat.booking_date), "MMMM d, yyyy")}, {formatDateFns(new Date(selectedSeat.from_time), "h:mm a")} - {formatDateFns(new Date(selectedSeat.to_time), "h:mm a")}
-            </div>
-          )}
         </div>
-        <DialogFooter className="mt-6">
-          {selectedSeat.status === "available" ? (
-            <button
-              onClick={handleBookClick}
-              disabled={!!validationError || !internalBookingDate || !fromTime || !toTime}
-              className="w-full rounded-md bg-gradient-to-r from-[#8BC34A] to-[#43a047] hover:from-[#7CB342] hover:to-[#388E3C] px-4 py-2 text-white font-semibold focus:outline-none focus:ring-2 focus:ring-[#8BC34A] focus:ring-opacity-50 disabled:opacity-50"
-            >
-              Book Seat
-            </button>
-          ) : selectedSeat.status === "yours" ? (
-            <button
-              onClick={handleCancelBooking}
-              className="w-full rounded-md bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-700 hover:to-red-800 px-4 py-2 text-white font-semibold focus:outline-none focus:ring-2 focus:ring-[#F44336] focus:ring-opacity-50"
-            >
-              Cancel Booking
-            </button>
-          ) : (
-            <button
-              onClick={() => setIsDialogOpen(false)}
-              className="w-full rounded-md border border-[#2A3042] text-[#1A1F2E] hover:bg-[#2A3042] hover:text-white px-4 py-2 font-semibold"
-            >
-              Close
-            </button>
-          )}
+        <DialogFooter className="mt-12 flex flex-row gap-8 justify-end">
+          <Button
+            variant="outline"
+            className="text-2xl px-12 py-8 rounded-xl border-2 text-white hover:bg-white/10 transition-all duration-300"
+            onClick={() => setIsDialogOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="default"
+            className="text-2xl px-12 py-8 rounded-xl bg-gradient-to-r from-[#8BC34A] to-[#43a047] text-white hover:from-[#43a047] hover:to-[#8BC34A] transition-all duration-300 shadow-lg hover:shadow-xl"
+            onClick={handleBookClick}
+          >
+            Book Seat
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

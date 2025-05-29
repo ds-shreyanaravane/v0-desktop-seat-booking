@@ -268,7 +268,7 @@ export async function GET(request: Request) {
                   // If booking date is in the future, always show as available
                   effectiveStatus = 'available';
                 } else if (String(seat.current_booking_employee_id) === requestingEmployeeId) {
-                  effectiveStatus = 'yours';
+                effectiveStatus = 'yours';
                 } else {
                   effectiveStatus = 'booked';
                 }
@@ -339,10 +339,11 @@ export async function GET(request: Request) {
     });
 
     const stats = {
-      total: result.recordset.length, // Total seats matching criteria (potentially available for slot)
+      total: seats.length,
       available: seats.filter((s: any) => s.status === 'available').length,
-      booked: seats.filter((s: any) => s.status === 'booked').length, // This might be less relevant if filtering for a slot
-      yours: 0 
+      reserved: seats.filter((s: any) => s.status === 'reserved' || s.status === 'blocked').length,
+      yours: seats.filter((s: any) => s.status === 'yours').length,
+      booked: seats.filter((s: any) => s.status === 'booked').length,
     };
 
     return NextResponse.json({ seats, stats });
@@ -459,9 +460,9 @@ export async function POST(request: Request) {
       const currentTime = now.toTimeString().slice(0, 8);
       if (currentTime >= fromTime) {
         // Only set is_booked to 1 if the booking is for today and current time is after booking start time
-        await pool.request()
-          .input('seatId', sql.Int, seatId)
-          .query("UPDATE Seats SET is_booked = 1, status = 'booked' WHERE seat_no = @seatId");
+    await pool.request()
+      .input('seatId', sql.Int, seatId)
+      .query("UPDATE Seats SET is_booked = 1, status = 'booked' WHERE seat_no = @seatId");
       }
     }
 
@@ -493,18 +494,18 @@ export async function DELETE(request: Request) {
       const isToday = bookingDate.toDateString() === now.toDateString();
       
       // Delete the booking
-      await pool.request()
-        .input('bookingId', sql.Int, bookingId)
-        .query('DELETE FROM booking WHERE booking_id = @bookingId');
+    await pool.request()
+      .input('bookingId', sql.Int, bookingId)
+      .query('DELETE FROM booking WHERE booking_id = @bookingId');
 
-      if (seatNo) {
+    if (seatNo) {
         if (isToday) {
           const currentTime = now.toTimeString().slice(0, 8);
           if (currentTime >= booking.from_time) {
             // Only update seat status if the booking was for today and current time is after booking start time
-            await pool.request()
-              .input('seatNo', sql.Int, seatNo)
-              .query("UPDATE Seats SET is_booked = 0, status = 'available' WHERE seat_no = @seatNo");
+      await pool.request()
+        .input('seatNo', sql.Int, seatNo)
+        .query("UPDATE Seats SET is_booked = 0, status = 'available' WHERE seat_no = @seatNo");
           }
         }
       }
